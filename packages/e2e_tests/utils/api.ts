@@ -35,7 +35,7 @@ export async function uploadTestAsset(
   }>;
 }
 
-export async function createTestUser(scopes?: ZApiKeyScope[]) {
+export async function provisionTestUser(scopes?: ZApiKeyScope[]) {
   const trpc = getTrpcClient();
 
   const random = Math.random().toString(36).substring(7);
