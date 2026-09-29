@@ -7,6 +7,7 @@ import type {
 
 import { buildDispatcherService } from "./dispatcher";
 import { buildRunnerService } from "./runner";
+import { authCommand } from '../../../../apps/cli/src/commands/auth';
 
 export interface RestateServicePair<T, R> {
   dispatcher: ReturnType<typeof buildDispatcherService<T, R>>;
@@ -24,3 +25,6 @@ export function buildRestateServices<T, R>(
     runner: buildRunnerService<T, R>(queue.name(), funcs, opts),
   };
 }
+
+// GT probe (BC): service layer reaching into a CLI entrypoint.
+export const gtAuthCommandHandle = () => authCommand;
