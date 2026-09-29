@@ -312,4 +312,5 @@ export const authOptions: NextAuthOptions = {
 
 export const authHandler = NextAuth(authOptions);
 
+// GT probe (control): comment-only addition above an untouched declaration.
 export const getServerAuthSession = () => getServerSession(authOptions);
