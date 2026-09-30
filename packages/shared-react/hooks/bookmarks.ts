@@ -105,6 +105,7 @@ export function useUpdateBookmark(
     TRPCApi["bookmarks"]["updateBookmark"]["mutationOptions"]
   >[0],
 ) {
+  // GT probe (FC T3): body-only change to a hook with cross-package callers.
   const api = useTRPC();
   const queryClient = useQueryClient();
   return useMutation(
