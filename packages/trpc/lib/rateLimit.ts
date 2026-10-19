@@ -9,7 +9,7 @@ import { getRateLimitClient } from "@karakeep/shared/ratelimiting";
  * @param config Rate limit configuration
  * @returns tRPC middleware function
  */
-export function createRateLimitMiddleware<T>(config: RateLimitConfig) {
+export function createRateLimitedMiddleware<T>(config: RateLimitConfig) {
   return async function rateLimitMiddleware(opts: {
     path: string;
     ctx: {
