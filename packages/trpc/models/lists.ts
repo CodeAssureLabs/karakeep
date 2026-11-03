@@ -21,7 +21,6 @@ import {
   zNewBookmarkListSchema,
 } from "@karakeep/shared/types/lists";
 import { ZCursor } from "@karakeep/shared/types/pagination";
-import { switchCase } from "@karakeep/shared/utils/switch";
 
 import { AuthedContext, Context } from "..";
 import { buildImpersonatingAuthedContext } from "../lib/impersonate";
@@ -34,6 +33,13 @@ import { zRuleEngineRuleEventSchema } from "@karakeep/shared/types/rules";
 interface ListCollaboratorEntry {
   membershipId: string;
 }
+
+const ROLE_RANK: Record<ZBookmarkList["userRole"], number> = {
+  public: 0,
+  viewer: 1,
+  editor: 2,
+  owner: 3,
+};
 
 export abstract class List {
   protected constructor(
@@ -433,24 +439,14 @@ export abstract class List {
    * Check if the user can view this list and its bookmarks.
    */
   canUserView(): boolean {
-    return switchCase(this.list.userRole, {
-      owner: true,
-      editor: true,
-      viewer: true,
-      public: true,
-    });
+    return ROLE_RANK[this.list.userRole] >= ROLE_RANK.public;
   }
 
   /**
    * Check if the user can edit this list (add/remove bookmarks).
    */
   canUserEdit(): boolean {
-    return switchCase(this.list.userRole, {
-      owner: true,
-      editor: true,
-      viewer: false,
-      public: false,
-    });
+    return ROLE_RANK[this.list.userRole] >= ROLE_RANK.viewer;
   }
 
   /**
@@ -458,12 +454,7 @@ export abstract class List {
    * Only the owner can manage the list.
    */
   canUserManage(): boolean {
-    return switchCase(this.list.userRole, {
-      owner: true,
-      editor: false,
-      viewer: false,
-      public: false,
-    });
+    return ROLE_RANK[this.list.userRole] >= ROLE_RANK.owner;
   }
 
   /**
