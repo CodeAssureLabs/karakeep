@@ -68,6 +68,7 @@ import { bookmarkCreationCounter } from "../stats";
 
 import type { AuthedContext } from "../index";
 import {
+  authedProcedure,
   createEventLogMiddleware,
   createRateLimitMiddleware,
   createScopedAuthedProcedure,
@@ -77,6 +78,7 @@ import {
 import { RuleEngine } from "../lib/ruleEngine";
 import { getBookmarkIdsFromMatcher } from "../lib/search";
 import { reciprocalRankFusion } from "../lib/searchRanking";
+import { fetchUrlMetadata } from "../lib/urlMetadata";
 import { Asset } from "../models/assets";
 import { BareBookmark, Bookmark } from "../models/bookmarks";
 import { WebhooksService } from "../models/webhooks.service";
@@ -238,6 +240,23 @@ async function shouldUseLowPriorityQueues(
 }
 
 export const bookmarksAppRouter = router({
+  getUrlPreview: authedProcedure
+    .input(
+      z.object({
+        url: z.string().url(),
+      }),
+    )
+    .output(
+      z.object({
+        url: z.string(),
+        title: z.string().nullable(),
+        description: z.string().nullable(),
+        favicon: z.string().nullable(),
+      }),
+    )
+    .query(async ({ input }) => {
+      return await fetchUrlMetadata(input.url);
+    }),
   createBookmark: bookmarksProcedure
     .use(
       createRateLimitMiddleware({
