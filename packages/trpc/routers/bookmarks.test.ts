@@ -1771,4 +1771,104 @@ describe("Bookmark Routes", () => {
       expect(result.bookmarkId).toBeNull();
     });
   });
+
+  describe("getSiteBookmarks", () => {
+    test<CustomTestContext>("returns an empty list when nothing is saved from the site", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0].bookmarks;
+      const result = await api.getSiteBookmarks({
+        url: "https://nothing-here.example.com/some/page",
+      });
+      expect(result.origin).toEqual("https://nothing-here.example.com");
+      expect(result.bookmarks).toEqual([]);
+    });
+
+    test<CustomTestContext>("returns bookmarks saved from the same origin", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0].bookmarks;
+      const first = await api.createBookmark({
+        url: "https://site.example.com/posts/1",
+        type: BookmarkTypes.LINK,
+      });
+      const second = await api.createBookmark({
+        url: "https://site.example.com/posts/2?ref=feed",
+        type: BookmarkTypes.LINK,
+      });
+      await api.createBookmark({
+        url: "https://other.example.com/posts/1",
+        type: BookmarkTypes.LINK,
+      });
+      await api.updateTags({
+        bookmarkId: second.id,
+        attach: [{ tagName: "reading" }],
+        detach: [],
+      });
+
+      const result = await api.getSiteBookmarks({
+        url: "https://site.example.com/posts/3",
+      });
+      expect(result.origin).toEqual("https://site.example.com");
+      expect(result.bookmarks.map((b) => b.id).sort()).toEqual(
+        [first.id, second.id].sort(),
+      );
+      const tagged = result.bookmarks.find((b) => b.id === second.id);
+      expect(tagged?.tags).toEqual(["reading"]);
+    });
+
+    test<CustomTestContext>("does not match a different host sharing the prefix", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0].bookmarks;
+      await api.createBookmark({
+        url: "https://site.example.com.evil.test/page",
+        type: BookmarkTypes.LINK,
+      });
+
+      const result = await api.getSiteBookmarks({
+        url: "https://site.example.com/",
+      });
+      expect(result.bookmarks).toEqual([]);
+    });
+
+    test<CustomTestContext>("excludes archived bookmarks unless requested", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0].bookmarks;
+      const bookmark = await api.createBookmark({
+        url: "https://archive.example.com/old",
+        type: BookmarkTypes.LINK,
+      });
+      await api.updateBookmark({ bookmarkId: bookmark.id, archived: true });
+
+      const hidden = await api.getSiteBookmarks({
+        url: "https://archive.example.com/new",
+      });
+      expect(hidden.bookmarks).toEqual([]);
+
+      const shown = await api.getSiteBookmarks({
+        url: "https://archive.example.com/new",
+        includeArchived: true,
+      });
+      expect(shown.bookmarks.map((b) => b.id)).toEqual([bookmark.id]);
+      expect(shown.bookmarks[0].archived).toBe(true);
+    });
+
+    test<CustomTestContext>("respects the limit", async ({ apiCallers }) => {
+      const api = apiCallers[0].bookmarks;
+      for (let i = 0; i < 4; i++) {
+        await api.createBookmark({
+          url: `https://many.example.com/item/${i}`,
+          type: BookmarkTypes.LINK,
+        });
+      }
+
+      const result = await api.getSiteBookmarks({
+        url: "https://many.example.com/",
+        limit: 2,
+      });
+      expect(result.bookmarks).toHaveLength(2);
+    });
+  });
 });
