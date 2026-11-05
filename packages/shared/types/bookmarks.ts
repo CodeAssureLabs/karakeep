@@ -367,6 +367,37 @@ export const zSearchBookmarksRequestSchema = z.object({
   includeContent: z.boolean().optional().default(false),
 });
 
+export const MAX_SITE_BOOKMARKS = 20;
+
+// Used by clients (e.g. the browser extension popup) to show what else has
+// been saved from the site the user is currently on.
+export const zSiteBookmarksRequestSchema = z.object({
+  url: zBookmarkUrlSchema,
+  limit: z.number().int().min(1).max(MAX_SITE_BOOKMARKS).optional().default(5),
+  includeArchived: z.boolean().optional().default(false),
+});
+export type ZSiteBookmarksRequest = z.infer<typeof zSiteBookmarksRequestSchema>;
+
+export const zSiteBookmarkSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string().nullish(),
+  note: z.string().nullish(),
+  archived: z.boolean(),
+  favourited: z.boolean(),
+  createdAt: z.date(),
+  tags: z.array(z.string()),
+});
+export type ZSiteBookmark = z.infer<typeof zSiteBookmarkSchema>;
+
+export const zSiteBookmarksResponseSchema = z.object({
+  origin: z.string(),
+  bookmarks: z.array(zSiteBookmarkSchema),
+});
+export type ZSiteBookmarksResponse = z.infer<
+  typeof zSiteBookmarksResponseSchema
+>;
+
 export const zPublicBookmarkSchema = z.object({
   id: z.string(),
   createdAt: z.date(),

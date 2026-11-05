@@ -1,5 +1,5 @@
 import { experimental_trpcMiddleware, TRPCError } from "@trpc/server";
-import { and, eq, gt, inArray, like, lt, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, like, lt, or } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -57,6 +57,8 @@ import {
   zNewBookmarkRequestSchema,
   zSearchBookmarksCursor,
   zSearchBookmarksRequestSchema,
+  zSiteBookmarksRequestSchema,
+  zSiteBookmarksResponseSchema,
   zUpdateBookmarksRequestSchema,
 } from "@karakeep/shared/types/bookmarks";
 import type { ZBookmarkTags } from "@karakeep/shared/types/tags";
@@ -1220,6 +1222,79 @@ export const bookmarksAppRouter = router({
       );
 
       return { bookmarkId: exactMatch?.id ?? null };
+    }),
+  getSiteBookmarks: bookmarksProcedure
+    .input(zSiteBookmarksRequestSchema)
+    .output(zSiteBookmarksResponseSchema)
+    .query(async ({ input, ctx }) => {
+      // Group by origin (scheme + host + port) so that e.g. blog.example.com
+      // and example.com are treated as different sites.
+      const { origin } = new URL(input.url);
+
+      const matches = await ctx.db
+        .select({ id: bookmarks.id })
+        .from(bookmarks)
+        .innerJoin(bookmarkLinks, eq(bookmarkLinks.id, bookmarks.id))
+        .where(
+          and(
+            or(
+              eq(bookmarkLinks.url, origin),
+              like(bookmarkLinks.url, `${origin}/%`),
+              like(bookmarkLinks.url, `${origin}?%`),
+            ),
+            input.includeArchived ? undefined : eq(bookmarks.archived, false),
+          ),
+        )
+        .orderBy(desc(bookmarks.createdAt))
+        .limit(input.limit);
+
+      if (matches.length === 0) {
+        return { origin, bookmarks: [] };
+      }
+
+      const rows = await ctx.db.query.bookmarks.findMany({
+        where: inArray(bookmarks.id, matches.map((m) => m.id)),
+        orderBy: [desc(bookmarks.createdAt)],
+        columns: {
+          id: true,
+          title: true,
+          note: true,
+          archived: true,
+          favourited: true,
+          createdAt: true,
+        },
+        with: {
+          link: {
+            columns: {
+              url: true,
+              title: true,
+            },
+          },
+          tagsOnBookmarks: {
+            with: {
+              tag: {
+                columns: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        origin,
+        bookmarks: rows.map((row) => ({
+          id: row.id,
+          url: row.link?.url ?? "",
+          title: row.title ?? row.link?.title,
+          note: row.note,
+          archived: row.archived,
+          favourited: row.favourited,
+          createdAt: row.createdAt,
+          tags: row.tagsOnBookmarks.map((t) => t.tag.name),
+        })),
+      };
     }),
   getBookmarks: bookmarksProcedure
     .use(createBookmarksQueriedMiddleware())
